@@ -2,7 +2,7 @@
 
 import bcrypt from "bcryptjs";
 import { AuthError } from "next-auth";
-import { isRedirectError } from "next/dist/client/components/redirect-error";
+import { redirect } from "next/navigation";
 
 import { signIn } from "@/auth";
 import { sendVerificationEmail } from "@/emails/auth-emails";
@@ -139,15 +139,20 @@ export async function loginAction(
   }
 
   try {
-    await signIn("credentials", {
+    const result = await signIn("credentials", {
       email: parsed.data.email.toLowerCase(),
       password: parsed.data.password,
-      redirectTo: "/dashboard",
+      redirect: false,
     });
-  } catch (error) {
-    if (isRedirectError(error)) {
-      throw error;
+
+    if (result?.error) {
+      return {
+        success: false,
+        message: "Invalid email or password.",
+      };
     }
+  } catch (error) {
+    console.error("[auth] login failed:", error);
 
     if (error instanceof AuthError) {
       return {
@@ -162,7 +167,7 @@ export async function loginAction(
     };
   }
 
-  return { success: true, message: "Signed in successfully." };
+  redirect("/dashboard");
 }
 
 export async function forgotPasswordAction(
