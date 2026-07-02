@@ -1,4 +1,8 @@
-import { sendEmail } from "@/server/services/email.service";
+import { getAppBaseUrl } from "@/lib/app-url";
+import {
+  sendEmail,
+  type SendEmailResult,
+} from "@/server/services/email.service";
 
 export function verificationEmailHtml({
   name,
@@ -16,6 +20,13 @@ export function verificationEmailHtml({
         Verify email
       </a>
       <p style="color: #666; font-size: 14px; margin-top: 24px;">
+        Open the link, then click <strong>Verify my email</strong> on the page.
+      </p>
+      <p style="color: #666; font-size: 14px; margin-top: 16px;">
+        Or copy and paste this link into your browser:<br />
+        <a href="${verifyUrl}" style="color: #fc4c02; word-break: break-all;">${verifyUrl}</a>
+      </p>
+      <p style="color: #666; font-size: 14px; margin-top: 16px;">
         If you did not create an account, you can safely ignore this email.
       </p>
     </div>
@@ -52,11 +63,11 @@ export async function sendVerificationEmail({
   email: string;
   name: string;
   token: string;
-}) {
-  const baseUrl = process.env.AUTH_URL ?? "http://localhost:3000";
+}): Promise<SendEmailResult> {
+  const baseUrl = getAppBaseUrl();
   const verifyUrl = `${baseUrl}/verify-email?token=${token}`;
 
-  await sendEmail({
+  return sendEmail({
     to: email,
     subject: "Verify your PaceX account",
     html: verificationEmailHtml({ name, verifyUrl }),
@@ -73,7 +84,7 @@ export async function sendPasswordResetEmail({
   name: string;
   token: string;
 }) {
-  const baseUrl = process.env.AUTH_URL ?? "http://localhost:3000";
+  const baseUrl = getAppBaseUrl();
   const resetUrl = `${baseUrl}/reset-password?token=${token}`;
 
   await sendEmail({

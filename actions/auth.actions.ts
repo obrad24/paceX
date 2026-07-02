@@ -4,7 +4,7 @@ import bcrypt from "bcryptjs";
 import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
 
-import { signIn } from "@/auth";
+import { auth, signIn } from "@/auth";
 import { sendVerificationEmail } from "@/emails/auth-emails";
 import { prisma } from "@/lib/prisma";
 import {
@@ -17,6 +17,7 @@ import {
   createPasswordResetToken,
   createVerificationToken,
   deletePasswordResetToken,
+  normalizeVerificationToken,
   verifyEmailToken,
   verifyPasswordResetToken,
 } from "@/server/services/token.service";
@@ -263,7 +264,74 @@ export async function resetPasswordAction(
   };
 }
 
-export async function verifyEmailAction(token: string): Promise<ActionState> {
+export async function resendVerificationEmailAction(): Promise<ActionState> {
+  const session = await auth();
+
+  if (!session?.user?.email) {
+    return {
+      success: false,
+      message: "You must be signed in to resend verification email.",
+    };
+  }
+
+  const email = session.user.email.toLowerCase();
+  const user = await prisma.user.findUnique({
+    where: { email },
+    include: { profile: true },
+  });
+
+  if (!user) {
+    return {
+      success: false,
+      message: "Account not found.",
+    };
+  }
+
+  if (user.emailVerified) {
+    return {
+      success: false,
+      message: "Your email is already verified.",
+    };
+  }
+
+  const token = await createVerificationToken(email);
+
+  try {
+    const result = await sendVerificationEmail({
+      email,
+      name: user.profile?.firstName ?? "Runner",
+      token,
+    });
+
+    if (!result.delivered && result.devLink) {
+      return {
+        success: true,
+        message: `Email provider is not active in dev mode. Use this link: ${result.devLink}`,
+      };
+    }
+
+    return {
+      success: true,
+      message: `Verification email sent to ${email}. Check your inbox and spam folder.`,
+    };
+  } catch (error) {
+    console.error("[auth] resend verification failed:", error);
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Could not send verification email. Please try again later.";
+
+    return {
+      success: false,
+      message,
+    };
+  }
+}
+
+export async function verifyEmailAction(rawToken: string): Promise<ActionState> {
+  const token = normalizeVerificationToken(rawToken);
+
   if (!token) {
     return {
       success: false,
@@ -271,18 +339,21 @@ export async function verifyEmailAction(token: string): Promise<ActionState> {
     };
   }
 
-  const user = await verifyEmailToken(token);
+  const result = await verifyEmailToken(token);
 
-  if (!user) {
+  if (!result) {
     return {
       success: false,
-      message: "This verification link is invalid or has expired.",
+      message:
+        "This verification link is invalid or has expired. Sign in and use “Resend verification email” on your dashboard.",
     };
   }
 
   return {
     success: true,
-    message: "Email verified successfully. You can now sign in.",
+    message: result.alreadyVerified
+      ? "Your email was already verified. You can sign in."
+      : "Email verified successfully. You can now sign in.",
   };
 }
 

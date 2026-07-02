@@ -4,6 +4,10 @@ import { prisma } from "@/lib/prisma";
 
 const TOKEN_EXPIRY_HOURS = 24;
 
+export function normalizeVerificationToken(token: string): string {
+  return decodeURIComponent(token).trim().replace(/\s+/g, "");
+}
+
 export async function createVerificationToken(email: string) {
   const token = randomBytes(32).toString("hex");
   const expires = new Date(Date.now() + TOKEN_EXPIRY_HOURS * 60 * 60 * 1000);
@@ -23,13 +27,47 @@ export async function createVerificationToken(email: string) {
   return token;
 }
 
-export async function verifyEmailToken(token: string) {
+export type VerifyEmailResult = {
+  user: Awaited<ReturnType<typeof prisma.user.findUnique>> & {
+    profile: Awaited<ReturnType<typeof prisma.profile.findUnique>>;
+  };
+  alreadyVerified: boolean;
+};
+
+export async function verifyEmailToken(
+  rawToken: string,
+): Promise<VerifyEmailResult | null> {
+  const token = normalizeVerificationToken(rawToken);
+
+  if (!token) {
+    return null;
+  }
+
   const record = await prisma.verificationToken.findUnique({
     where: { token },
   });
 
-  if (!record || record.expires < new Date()) {
+  if (!record) {
     return null;
+  }
+
+  if (record.expires < new Date()) {
+    await prisma.verificationToken.delete({ where: { token } }).catch(() => {});
+    return null;
+  }
+
+  const existingUser = await prisma.user.findUnique({
+    where: { email: record.identifier },
+    include: { profile: true },
+  });
+
+  if (!existingUser) {
+    return null;
+  }
+
+  if (existingUser.emailVerified) {
+    await prisma.verificationToken.delete({ where: { token } }).catch(() => {});
+    return { user: existingUser, alreadyVerified: true };
   }
 
   const user = await prisma.user.update({
@@ -42,7 +80,7 @@ export async function verifyEmailToken(token: string) {
     where: { token },
   });
 
-  return user;
+  return { user, alreadyVerified: false };
 }
 
 export async function createPasswordResetToken(email: string) {

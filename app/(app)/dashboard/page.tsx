@@ -10,6 +10,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmailVerificationBanner } from "@/features/auth/components/email-verification-banner";
+import { LogoutButton } from "@/features/auth/components/logout-button";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -21,19 +23,19 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">
-          Good to see you, {firstName}
-        </h1>
-        <p className="mt-1 text-muted-foreground">
-          Your running stats and leagues will appear here after Strava sync.
-        </p>
-        {!session?.user?.emailVerified ? (
-          <p className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-700 dark:text-amber-300">
-            Verify your email to unlock all features. Check your inbox for the
-            verification link.
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Good to see you, {firstName}
+          </h1>
+          <p className="mt-1 text-muted-foreground">
+            Your running stats and leagues will appear here after Strava sync.
           </p>
-        ) : null}
+          {!session?.user?.emailVerified && session?.user?.email ? (
+            <EmailVerificationBanner email={session.user.email} />
+          ) : null}
+        </div>
+        <LogoutButton className="shrink-0" />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
