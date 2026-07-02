@@ -66,7 +66,7 @@ export async function registerAction(
   if (existingUser) {
     return {
       success: false,
-      message: "An account with this email already exists.",
+      message: "An account with this email already exists. Try signing in instead.",
       errors: { email: ["Email is already registered"] },
     };
   }
@@ -77,7 +77,7 @@ export async function registerAction(
   if (existingUsername) {
     return {
       success: false,
-      message: "This username is already taken.",
+      message: "This username is already taken. Choose another or sign in if you already registered.",
       errors: { username: ["Username is already taken"] },
     };
   }

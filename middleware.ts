@@ -1,14 +1,19 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-
-import { auth } from "@/auth";
+import { getToken } from "next-auth/jwt";
 
 const authRoutes = ["/login", "/register", "/forgot-password", "/reset-password"];
 const protectedRoutes = ["/dashboard", "/profile", "/settings", "/admin"];
 
-export default auth((request) => {
+export async function middleware(request: NextRequest) {
+  const token = await getToken({
+    req: request,
+    secret: process.env.AUTH_SECRET,
+    secureCookie: process.env.NODE_ENV === "production",
+  });
+
+  const isLoggedIn = !!token;
   const { pathname } = request.nextUrl;
-  const isLoggedIn = !!request.auth;
 
   const isAuthRoute = authRoutes.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`),
@@ -29,7 +34,7 @@ export default auth((request) => {
   }
 
   return NextResponse.next();
-});
+}
 
 export const config = {
   matcher: [

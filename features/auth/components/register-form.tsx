@@ -175,6 +175,9 @@ export function RegisterForm() {
         <Button type="submit" className="w-full" disabled={isPending}>
           {isPending ? "Creating account..." : "Create account"}
         </Button>
+        {state.message && !state.success && !state.errors ? (
+          <p className="text-center text-sm text-destructive">{state.message}</p>
+        ) : null}
       </form>
     </AuthCard>
   );
